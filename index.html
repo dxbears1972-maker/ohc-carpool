@@ -414,7 +414,10 @@ function calc() {
   var dateStr = "";
   if (dateVal) {
     var p = dateVal.split("-");
-    dateStr = parseInt(p[1], 10) + "月" + parseInt(p[2], 10) + "日";
+    var youbi = ["日", "月", "火", "水", "木", "金", "土"][
+      new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)).getDay()
+    ];
+    dateStr = parseInt(p[1], 10) + "月" + parseInt(p[2], 10) + "日（" + youbi + "）";
   }
   var hikeName = document.getElementById("hikeName").value.trim();
   var meetPlace = document.getElementById("meetPlace").value.trim();
