@@ -116,6 +116,21 @@
   table.etc td { padding: 4px 2px; }
   table.etc input { font-size: 18px; padding: 8px; }
   .copied { text-align: center; color: #2e6b34; font-weight: bold; margin-top: 6px; display: none; }
+  /* 履歴 */
+  .hist-item { border-bottom: 1px solid #ccc; padding: 12px 0; }
+  .hist-item .h-title { font-size: 18px; font-weight: bold; }
+  .hist-item .h-sub { font-size: 14px; color: #555; margin-top: 2px; }
+  .hist-btns { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .hist-btns .h-btn {
+    font-size: 16px; padding: 8px 14px;
+    border: none; border-radius: 8px;
+    background: #2e6b34; color: #fff; cursor: pointer;
+  }
+  .hist-item pre {
+    white-space: pre-wrap; background: #f4f7f4;
+    padding: 10px; border-radius: 8px;
+    font-size: 15px; margin-top: 8px; font-family: inherit;
+  }
 </style>
 </head>
 <body>
@@ -171,7 +186,18 @@
     <div id="resultBody"></div>
     <button type="button" class="btn btn-sub" onclick="copyResult()">結果をコピーする（LINE用）</button>
     <div class="copied" id="copiedMsg">コピーしました！</div>
+    <button type="button" class="btn btn-sub" onclick="saveHistory()">この結果を履歴に残す</button>
+    <div class="copied" id="histSavedMsg">履歴に保存しました！</div>
   </div>
+
+  <!-- 履歴 -->
+  <details>
+    <summary>精算の履歴</summary>
+    <div class="card">
+      <p class="note">保存した精算結果の一覧です（この端末に保存・最新50件）。精算結果の「この結果を履歴に残す」ボタンで追加されます。</p>
+      <div id="histList"></div>
+    </div>
+  </details>
 
   <!-- ETC料金表 -->
   <details>
@@ -207,10 +233,10 @@
     <summary>使い方・計算のしくみ</summary>
     <div class="card">
       <p><b>計算のしくみ（Excel版と同じ）</b></p>
-      <p>車1台の経費 ＝ 片道距離 × 2（往復）× 単価50円 ＋ ETC往復料金</p>
+      <p>車1台の経費 ＝ 往復距離 × 単価50円 ＋ ETC往復料金</p>
       <p>全車の経費合計を参加者全員で等分し、一人あたりの負担額を出します。ドライバーには車の経費が全額戻ります（自分の負担分を差し引いた額を受け取ります）。切り上げで出た余りもドライバーが受け取ります。</p>
       <p><b>手順</b></p>
-      <p>① 参加人数を入れる　② 車ごとにドライバー名・片道距離・ETC料金を入れる　③「計算する」を押す　④ 結果をコピーしてLINE等で共有</p>
+      <p>① 参加人数を入れる　② 車ごとにドライバー名・往復距離・ETC料金を入れる　③「計算する」を押す　④ 結果をコピーしてLINE等で共有</p>
       <p style="margin-top:8px;">入力した内容は自動で記憶され、次に開いたときに復元されます。</p>
     </div>
   </details>
@@ -224,8 +250,10 @@
 var LS_ETC = "ohc_carpool_etc";
 var LS_SET = "ohc_carpool_set";
 var LS_FORM = "ohc_carpool_form";
+var LS_HIST = "ohc_carpool_hist";
 var carCount = 0;
 var lastResultText = "";
+var lastResultData = null;
 
 function lsGet(key) {
   try { return JSON.parse(localStorage.getItem(key)); } catch (e) { return null; }
@@ -288,8 +316,8 @@ function addCar(data) {
     '<button type="button" class="btn-small" onclick="removeCar(this)">削除</button></div>' +
     '<label>ドライバー名</label>' +
     '<input type="text" class="car-name" placeholder="例：只隈">' +
-    '<label>片道距離（km）</label>' +
-    '<input type="number" class="car-km" placeholder="例：45" min="0" step="0.1">' +
+    '<label>往復距離（km）</label>' +
+    '<input type="number" class="car-km" placeholder="例：90" min="0" step="0.1">' +
     '<label>ETCルート（料金表から選ぶ）</label>' +
     '<select class="car-route" onchange="routeSelected(this)"><option value="">選ばない（下に直接入力）</option></select>' +
     '<label>ETC料金・往復（円）</label>' +
@@ -362,14 +390,14 @@ function calc() {
     var etc = parseInt(c.querySelector(".car-etc").value, 10);
     if (isNaN(km) || km < 0) { ok = false; km = 0; }
     if (isNaN(etc) || etc < 0) etc = 0;
-    var gas = Math.round(km * 2 * gasRate);
+    var gas = Math.round(km * gasRate);
     var cost = gas + etc;
     cars.push({ name: name, km: km, gas: gas, etc: etc, cost: cost });
     total += cost;
   });
   if (!ok) {
     resultDiv.style.display = "block";
-    body.innerHTML = '<p class="warn">片道距離が入っていない車があります。確認してください。</p>';
+    body.innerHTML = '<p class="warn">往復距離が入っていない車があります。確認してください。</p>';
     return;
   }
 
@@ -409,7 +437,7 @@ function calc() {
     html += '<div class="result-car">' +
       '<div class="name">' + escapeHtml(c.name) + 'さん（ドライバー）：' + netLabel + '</div>' +
       '<div class="detail">車の経費 ' + yen(c.cost) +
-      '（ガソリン代 ' + c.km + 'km×2×' + gasRate + '円＝' + yen(c.gas) +
+      '（ガソリン代 往復' + c.km + 'km×' + gasRate + '円＝' + yen(c.gas) +
       '　＋　ETC往復 ' + yen(c.etc) + '）－ 本人負担分 ' + yen(share) +
       (c.bonus > 0 ? '　＋ 切り上げの余り ' + yen(c.bonus) : '') + '</div></div>';
   });
@@ -443,6 +471,67 @@ function calc() {
   if (passengers > 0) t += "■同乗者" + passengers + "名 → 一人 " + share.toLocaleString("ja-JP") + "円 支払い\n";
   if (surplus > 0) t += "（切り上げの余り " + surplus.toLocaleString("ja-JP") + "円はドライバー受け取り）\n";
   lastResultText = t;
+  lastResultData = {
+    savedAt: new Date().toLocaleString("ja-JP"),
+    dateStr: dateStr,
+    hikeName: hikeName,
+    n: nPeople,
+    carsCount: cars.length,
+    share: share,
+    total: total,
+    text: t
+  };
+}
+
+/* ---------- 履歴 ---------- */
+function saveHistory() {
+  if (!lastResultData) { alert("先に「計算する」を押してください。"); return; }
+  var h = lsGet(LS_HIST) || [];
+  h.unshift(lastResultData);
+  if (h.length > 50) h = h.slice(0, 50);
+  lsSet(LS_HIST, h);
+  renderHist();
+  var m = document.getElementById("histSavedMsg");
+  m.style.display = "block";
+  setTimeout(function () { m.style.display = "none"; }, 2000);
+}
+function renderHist() {
+  var h = lsGet(LS_HIST) || [];
+  var box = document.getElementById("histList");
+  if (!h.length) {
+    box.innerHTML = '<p class="note">まだ履歴はありません。</p>';
+    return;
+  }
+  var html = "";
+  h.forEach(function (e, i) {
+    html += '<div class="hist-item">' +
+      '<div class="h-title">' + escapeHtml((e.dateStr || "日付なし") + (e.hikeName ? "　" + e.hikeName : "")) + '</div>' +
+      '<div class="h-sub">参加' + e.n + '名／車' + e.carsCount + '台　一人 ' + yen(e.share) + '（合計 ' + yen(e.total) + '）<br>保存日時：' + escapeHtml(e.savedAt) + '</div>' +
+      '<div class="hist-btns">' +
+      '<button type="button" class="h-btn" onclick="toggleHist(' + i + ')">内容を見る</button>' +
+      '<button type="button" class="h-btn" onclick="copyHist(' + i + ')">コピー</button>' +
+      '<button type="button" class="btn-small" onclick="delHist(' + i + ')">削除</button></div>' +
+      '<pre id="histText' + i + '" style="display:none;">' + escapeHtml(e.text) + '</pre>' +
+      '</div>';
+  });
+  box.innerHTML = html;
+}
+function toggleHist(i) {
+  var p = document.getElementById("histText" + i);
+  p.style.display = (p.style.display === "none") ? "block" : "none";
+}
+function copyHist(i) {
+  var h = lsGet(LS_HIST) || [];
+  if (!h[i]) return;
+  doCopy(h[i].text, function () { alert("コピーしました。LINE等に貼り付けできます。"); });
+}
+function delHist(i) {
+  var h = lsGet(LS_HIST) || [];
+  if (!h[i]) return;
+  if (!confirm("この履歴を削除します。よろしいですか？")) return;
+  h.splice(i, 1);
+  lsSet(LS_HIST, h);
+  renderHist();
 }
 
 function escapeHtml(s) {
@@ -450,26 +539,28 @@ function escapeHtml(s) {
 }
 
 /* ---------- コピー ---------- */
-function copyResult() {
-  if (!lastResultText) return;
-  function done() {
-    var m = document.getElementById("copiedMsg");
-    m.style.display = "block";
-    setTimeout(function () { m.style.display = "none"; }, 2000);
-  }
+function doCopy(text, done) {
   function legacy() {
     var ta = document.createElement("textarea");
-    ta.value = lastResultText;
+    ta.value = text;
     document.body.appendChild(ta);
     ta.select();
     try { document.execCommand("copy"); done(); } catch (e) { alert("コピーできませんでした。"); }
     document.body.removeChild(ta);
   }
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(lastResultText).then(done, legacy);
+    navigator.clipboard.writeText(text).then(done, legacy);
   } else {
     legacy();
   }
+}
+function copyResult() {
+  if (!lastResultText) return;
+  doCopy(lastResultText, function () {
+    var m = document.getElementById("copiedMsg");
+    m.style.display = "block";
+    setTimeout(function () { m.style.display = "none"; }, 2000);
+  });
 }
 
 /* ---------- 入力の記憶 ---------- */
@@ -506,7 +597,7 @@ function loadForm() {
   return false;
 }
 function clearForm() {
-  if (!confirm("入力内容を全部消して最初からにします。よろしいですか？\n（ETC料金表と設定は残ります）")) return;
+  if (!confirm("入力内容を全部消して最初からにします。よろしいですか？\n（ETC料金表・設定・履歴は残ります）")) return;
   try { localStorage.removeItem(LS_FORM); } catch (e) {}
   document.getElementById("hikeName").value = "";
   document.getElementById("meetPlace").value = "";
@@ -548,6 +639,7 @@ function setToday() {
   setToday();
   loadSettings();
   loadEtc();
+  renderHist();
   if (!loadForm()) addCar();
   var m = document.querySelector("main");
   m.addEventListener("input", saveForm);
