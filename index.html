@@ -116,6 +116,7 @@
   table.etc td { padding: 4px 2px; }
   table.etc input { font-size: 18px; padding: 8px; }
   .copied { text-align: center; color: #2e6b34; font-weight: bold; margin-top: 6px; display: none; }
+  .youbi { font-size: 18px; font-weight: bold; color: #2e6b34; margin-top: 4px; text-align: center; }
   /* 履歴 */
   .hist-item { border-bottom: 1px solid #ccc; padding: 12px 0; }
   .hist-item .h-title { font-size: 18px; font-weight: bold; }
@@ -147,6 +148,7 @@
       <div>
         <label>山行日</label>
         <input type="date" id="hikeDate">
+        <div class="youbi" id="youbiDisp"></div>
       </div>
       <div>
         <label>山行名（任意）</label>
@@ -262,6 +264,17 @@ function lsSet(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
 }
 function yen(n) { return "¥" + n.toLocaleString("ja-JP"); }
+function youbiOf(dateVal) {
+  if (!dateVal) return "";
+  var p = dateVal.split("-");
+  return ["日", "月", "火", "水", "木", "金", "土"][
+    new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)).getDay()
+  ];
+}
+function updateYoubi() {
+  var y = youbiOf(document.getElementById("hikeDate").value);
+  document.getElementById("youbiDisp").textContent = y ? y + "曜日" : "";
+}
 
 /* ---------- 参加人数 ---------- */
 var nPeople = 4;
@@ -414,10 +427,7 @@ function calc() {
   var dateStr = "";
   if (dateVal) {
     var p = dateVal.split("-");
-    var youbi = ["日", "月", "火", "水", "木", "金", "土"][
-      new Date(parseInt(p[0], 10), parseInt(p[1], 10) - 1, parseInt(p[2], 10)).getDay()
-    ];
-    dateStr = parseInt(p[1], 10) + "月" + parseInt(p[2], 10) + "日（" + youbi + "）";
+    dateStr = parseInt(p[1], 10) + "月" + parseInt(p[2], 10) + "日（" + youbiOf(dateVal) + "）";
   }
   var hikeName = document.getElementById("hikeName").value.trim();
   var meetPlace = document.getElementById("meetPlace").value.trim();
@@ -606,6 +616,7 @@ function clearForm() {
   document.getElementById("meetPlace").value = "";
   document.getElementById("meetTime").value = "";
   setToday();
+  updateYoubi();
   nPeople = 4;
   document.getElementById("nDisp").textContent = nPeople;
   document.getElementById("cars").innerHTML = "";
@@ -644,9 +655,10 @@ function setToday() {
   loadEtc();
   renderHist();
   if (!loadForm()) addCar();
+  updateYoubi();
   var m = document.querySelector("main");
-  m.addEventListener("input", saveForm);
-  m.addEventListener("change", saveForm);
+  m.addEventListener("input", function () { saveForm(); updateYoubi(); });
+  m.addEventListener("change", function () { saveForm(); updateYoubi(); });
 })();
 </script>
 </body>
