@@ -71,6 +71,7 @@
   .btn-main { background: #d9541e; color: #fff; font-size: 26px; }
   .btn-main:active { background: #b34317; }
   .btn-sub { background: #e8f0e8; color: #2e6b34; border: 2px dashed #2e6b34; }
+  a.btn { text-align: center; text-decoration: none; }
   .btn-small {
     font-size: 16px; padding: 8px 14px;
     border: none; border-radius: 8px;
@@ -201,16 +202,26 @@
     </div>
   </details>
 
-  <!-- ETC料金表 -->
+  <!-- 高速料金表 -->
   <details>
-    <summary>ETC高速料金表の登録・編集</summary>
+    <summary>高速料金表の登録・編集</summary>
     <div class="card">
-      <p class="note">よく使うルートを登録しておくと、車の入力でドロップダウンから選べます。金額は<b>往復</b>のETC料金を入れてください。自動で保存されます。</p>
+      <p class="note">よく使うルートを登録しておくと、車の入力でドロップダウンから選べます。金額はどちらも<b>往復</b>で、ETC料金と通常料金（現金）を入れてください。自動で保存されます。</p>
       <table class="etc">
-        <tr><td style="width:60%"><b>ルート名</b></td><td><b>往復料金(円)</b></td><td></td></tr>
+        <tr><td style="width:40%"><b>ルート名</b></td><td><b>ETC往復(円)</b></td><td><b>通常往復(円)</b></td><td></td></tr>
         <tbody id="etcRows"></tbody>
       </table>
       <button type="button" class="btn btn-sub" onclick="addEtcRow()">＋ ルートを追加</button>
+    </div>
+  </details>
+
+  <!-- 便利リンク -->
+  <details>
+    <summary>便利リンク（料金・距離を調べる）</summary>
+    <div class="card">
+      <a class="btn btn-sub" href="https://search.w-nexco.co.jp/" target="_blank" rel="noopener">高速料金を調べる（NEXCO西日本）</a>
+      <a class="btn btn-sub" href="https://www.google.com/maps/dir/" target="_blank" rel="noopener">距離を調べる（Googleマップ）</a>
+      <p class="note">調べた金額・距離は、上の料金表や車の入力欄に書き写してください。</p>
     </div>
   </details>
 
@@ -235,10 +246,10 @@
     <summary>使い方・計算のしくみ</summary>
     <div class="card">
       <p><b>計算のしくみ（Excel版と同じ）</b></p>
-      <p>車1台の経費 ＝ 往復距離 × 単価50円 ＋ ETC往復料金</p>
+      <p>車1台の経費 ＝ 往復距離 × 単価50円 ＋ 高速往復料金（ETCの有無で自動切替）</p>
       <p>全車の経費合計を参加者全員で等分し、一人あたりの負担額を出します。ドライバーには車の経費が全額戻ります（自分の負担分を差し引いた額を受け取ります）。切り上げで出た余りもドライバーが受け取ります。</p>
       <p><b>手順</b></p>
-      <p>① 参加人数を入れる　② 車ごとにドライバー名・往復距離・ETC料金を入れる　③「計算する」を押す　④ 結果をコピーしてLINE等で共有</p>
+      <p>① 参加人数を入れる　② 車ごとにドライバー名・往復距離・高速ルート（ETCの有無）を入れる　③「計算する」を押す　④ 結果をコピーしてLINE等で共有</p>
       <p style="margin-top:8px;">入力した内容は自動で記憶され、次に開いたときに復元されます。</p>
     </div>
   </details>
@@ -290,8 +301,15 @@ function getEtcRoutes() {
   var routes = [];
   rows.forEach(function (tr) {
     var name = tr.querySelector(".etc-name").value.trim();
-    var fee = parseInt(tr.querySelector(".etc-fee").value, 10);
-    if (name && !isNaN(fee) && fee >= 0) routes.push({ name: name, fee: fee });
+    var etc = parseInt(tr.querySelector(".etc-fee").value, 10);
+    var normal = parseInt(tr.querySelector(".etc-normal").value, 10);
+    if (name && (!isNaN(etc) || !isNaN(normal))) {
+      routes.push({
+        name: name,
+        etc: isNaN(etc) ? null : etc,
+        normal: isNaN(normal) ? null : normal
+      });
+    }
   });
   return routes;
 }
@@ -299,21 +317,30 @@ function saveEtc() {
   lsSet(LS_ETC, getEtcRoutes());
   refreshAllDropdowns();
 }
-function addEtcRow(name, fee) {
+function addEtcRow(name, etcFee, normalFee) {
   var tbody = document.getElementById("etcRows");
   var tr = document.createElement("tr");
   tr.innerHTML =
-    '<td><input type="text" class="etc-name" placeholder="例：南関IC⇔鳥栖IC" onchange="saveEtc()"></td>' +
-    '<td><input type="number" class="etc-fee" placeholder="0" onchange="saveEtc()"></td>' +
+    '<td><input type="text" class="etc-name" placeholder="例：南関⇔鳥栖" onchange="saveEtc()"></td>' +
+    '<td><input type="number" class="etc-fee" placeholder="ETC" onchange="saveEtc()"></td>' +
+    '<td><input type="number" class="etc-normal" placeholder="通常" onchange="saveEtc()"></td>' +
     '<td><button type="button" class="btn-small" onclick="this.closest(\'tr\').remove(); saveEtc();">削除</button></td>';
   tr.querySelector(".etc-name").value = name || "";
-  if (fee != null) tr.querySelector(".etc-fee").value = fee;
+  if (etcFee != null) tr.querySelector(".etc-fee").value = etcFee;
+  if (normalFee != null) tr.querySelector(".etc-normal").value = normalFee;
   tbody.appendChild(tr);
 }
 function loadEtc() {
   var saved = lsGet(LS_ETC);
   if (saved && saved.length) {
-    saved.forEach(function (r) { addEtcRow(r.name, r.fee); });
+    saved.forEach(function (r) {
+      /* 旧形式（fee）からの移行：feeはETC料金として扱う */
+      if (r.fee != null && r.etc == null) {
+        addEtcRow(r.name, r.fee, null);
+      } else {
+        addEtcRow(r.name, r.etc, r.normal);
+      }
+    });
   } else {
     addEtcRow();
   }
@@ -331,9 +358,13 @@ function addCar(data) {
     '<input type="text" class="car-name" placeholder="例：只隈">' +
     '<label>往復距離（km）</label>' +
     '<input type="number" class="car-km" placeholder="例：90" min="0" step="0.1">' +
-    '<label>ETCルート（料金表から選ぶ）</label>' +
-    '<select class="car-route" onchange="routeSelected(this)"><option value="">選ばない（下に直接入力）</option></select>' +
-    '<label>ETC料金・往復（円）</label>' +
+    '<label>高速ルート（料金表から選ぶ）</label>' +
+    '<select class="car-route" onchange="routeSelected(this)"><option value="">使わない／下に直接入力</option></select>' +
+    '<label>ETCの有無</label>' +
+    '<select class="car-etcuse" onchange="routeSelected(this)">' +
+    '<option value="etc">ETCあり（ETC料金）</option>' +
+    '<option value="normal">ETCなし（通常料金）</option></select>' +
+    '<label>高速料金・往復（円）</label>' +
     '<input type="number" class="car-etc" placeholder="0" min="0">';
   if (data) {
     div.querySelector(".car-name").value = data.name || "";
@@ -359,20 +390,34 @@ function refreshAllDropdowns() {
   var routes = getEtcRoutes();
   document.querySelectorAll(".car-route").forEach(function (sel) {
     var current = sel.value;
-    sel.innerHTML = '<option value="">選ばない（下に直接入力）</option>';
+    sel.innerHTML = '<option value="">使わない／下に直接入力</option>';
     routes.forEach(function (r, i) {
       var op = document.createElement("option");
-      op.value = String(r.fee);
-      op.textContent = r.name + "（往復 " + yen(r.fee) + "）";
+      op.value = String(i);
+      op.textContent = r.name +
+        "（ETC " + (r.etc != null ? yen(r.etc) : "未登録") +
+        "／通常 " + (r.normal != null ? yen(r.normal) : "未登録") + "）";
       sel.appendChild(op);
     });
     sel.value = current;
   });
 }
-function routeSelected(sel) {
-  if (sel.value !== "") {
-    sel.closest(".car-card").querySelector(".car-etc").value = sel.value;
+function routeSelected(el) {
+  var card = el.closest(".car-card");
+  var idx = card.querySelector(".car-route").value;
+  if (idx === "") return;
+  var routes = getEtcRoutes();
+  var r = routes[parseInt(idx, 10)];
+  if (!r) return;
+  var use = card.querySelector(".car-etcuse").value;
+  var fee = (use === "etc") ? r.etc : r.normal;
+  if (fee == null) {
+    alert("このルートの" + (use === "etc" ? "ETC料金" : "通常料金") + "が料金表に未登録です。料金表に入力するか、下に直接入力してください。");
+    card.querySelector(".car-etc").value = "";
+    return;
   }
+  card.querySelector(".car-etc").value = fee;
+  saveForm();
 }
 
 /* ---------- 計算 ---------- */
@@ -451,7 +496,7 @@ function calc() {
       '<div class="name">' + escapeHtml(c.name) + 'さん（ドライバー）：' + netLabel + '</div>' +
       '<div class="detail">車の経費 ' + yen(c.cost) +
       '（ガソリン代 往復' + c.km + 'km×' + gasRate + '円＝' + yen(c.gas) +
-      '　＋　ETC往復 ' + yen(c.etc) + '）－ 本人負担分 ' + yen(share) +
+      '　＋　高速往復 ' + yen(c.etc) + '）－ 本人負担分 ' + yen(share) +
       (c.bonus > 0 ? '　＋ 切り上げの余り ' + yen(c.bonus) : '') + '</div></div>';
   });
   var passengers = nPeople - cars.length;
@@ -476,7 +521,7 @@ function calc() {
   cars.forEach(function (c) {
     var net = c.cost - share + c.bonus;
     t += "■" + c.name + "さん（ドライバー）\n";
-    t += "　車の経費 " + c.cost.toLocaleString("ja-JP") + "円（ガソリン " + c.gas.toLocaleString("ja-JP") + "円＋ETC " + c.etc.toLocaleString("ja-JP") + "円）\n";
+    t += "　車の経費 " + c.cost.toLocaleString("ja-JP") + "円（ガソリン " + c.gas.toLocaleString("ja-JP") + "円＋高速 " + c.etc.toLocaleString("ja-JP") + "円）\n";
     t += net >= 0
       ? "　→ 受け取り " + net.toLocaleString("ja-JP") + "円\n"
       : "　→ 支払い " + (-net).toLocaleString("ja-JP") + "円\n";
