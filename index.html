@@ -120,9 +120,17 @@
     padding: 12px; border-radius: 10px;
     cursor: pointer;
   }
-  table.etc { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  table.etc td { padding: 4px 2px; }
-  table.etc input { font-size: 18px; padding: 8px; }
+  .etc-row {
+    border: 2px solid #b9ccb9;
+    border-radius: 10px;
+    padding: 10px;
+    margin-top: 10px;
+    background: #fafcfa;
+  }
+  .etc-row input { font-size: 20px; padding: 8px; }
+  .etc-fees { display: flex; gap: 8px; align-items: flex-end; margin-top: 8px; }
+  .etc-fees > div { flex: 1; }
+  .etc-fees .fee-label { font-size: 14px; font-weight: bold; color: #555; display: block; margin: 0; }
   .copied { text-align: center; color: #2e6b34; font-weight: bold; margin-top: 6px; display: none; }
   .youbi { font-size: 18px; font-weight: bold; color: #2e6b34; margin-top: 4px; text-align: center; }
   /* 履歴 */
@@ -214,10 +222,7 @@
     <summary>高速料金表の登録・編集</summary>
     <div class="card">
       <p class="note">よく使うルートを登録しておくと、車の入力でドロップダウンから選べます。金額はどちらも<b>往復</b>で、ETC料金と通常料金（現金）を入れてください。自動で保存されます。</p>
-      <table class="etc">
-        <tr><td style="width:40%"><b>ルート名</b></td><td><b>ETC往復(円)</b></td><td><b>通常往復(円)</b></td><td></td></tr>
-        <tbody id="etcRows"></tbody>
-      </table>
+      <div id="etcRows"></div>
       <button type="button" class="btn btn-sub" onclick="addEtcRow()">＋ ルートを追加</button>
     </div>
   </details>
@@ -306,7 +311,7 @@ function changeN(d) {
 
 /* ---------- ETC料金表 ---------- */
 function getEtcRoutes() {
-  var rows = document.querySelectorAll("#etcRows tr");
+  var rows = document.querySelectorAll("#etcRows .etc-row");
   var routes = [];
   rows.forEach(function (tr) {
     var name = tr.querySelector(".etc-name").value.trim();
@@ -327,17 +332,20 @@ function saveEtc() {
   refreshAllDropdowns();
 }
 function addEtcRow(name, etcFee, normalFee) {
-  var tbody = document.getElementById("etcRows");
-  var tr = document.createElement("tr");
-  tr.innerHTML =
-    '<td><input type="text" class="etc-name" placeholder="例：南関⇔鳥栖" onchange="saveEtc()"></td>' +
-    '<td><input type="number" class="etc-fee" placeholder="ETC" onchange="saveEtc()"></td>' +
-    '<td><input type="number" class="etc-normal" placeholder="通常" onchange="saveEtc()"></td>' +
-    '<td><button type="button" class="btn-small" onclick="this.closest(\'tr\').remove(); saveEtc();">削除</button></td>';
-  tr.querySelector(".etc-name").value = name || "";
-  if (etcFee != null) tr.querySelector(".etc-fee").value = etcFee;
-  if (normalFee != null) tr.querySelector(".etc-normal").value = normalFee;
-  tbody.appendChild(tr);
+  var box = document.getElementById("etcRows");
+  var div = document.createElement("div");
+  div.className = "etc-row";
+  div.innerHTML =
+    '<input type="text" class="etc-name" placeholder="ルート名　例：南関⇔鳥栖" onchange="saveEtc()">' +
+    '<div class="etc-fees">' +
+    '<div><span class="fee-label">ETC往復(円)</span><input type="number" class="etc-fee" placeholder="0" onchange="saveEtc()"></div>' +
+    '<div><span class="fee-label">通常往復(円)</span><input type="number" class="etc-normal" placeholder="0" onchange="saveEtc()"></div>' +
+    '<button type="button" class="btn-small" onclick="this.closest(\'.etc-row\').remove(); saveEtc();">削除</button>' +
+    '</div>';
+  div.querySelector(".etc-name").value = name || "";
+  if (etcFee != null) div.querySelector(".etc-fee").value = etcFee;
+  if (normalFee != null) div.querySelector(".etc-normal").value = normalFee;
+  box.appendChild(div);
 }
 function loadEtc() {
   var saved = lsGet(LS_ETC);
