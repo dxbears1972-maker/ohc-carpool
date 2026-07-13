@@ -283,18 +283,25 @@ var LS_FORM = "ohc_carpool_form";
 var LS_HIST = "ohc_carpool_hist";
 
 /* カレンダーの予定から開かれた場合は、その予定専用に入力データを分ける */
-var EVENT_ID = "", EVENT_DATE = "", EVENT_TITLE = "";
+var EVENT_ID = "", EVENT_DATE = "", EVENT_TITLE = "", EVENT_TIME = "", EVENT_PLACE = "";
 try {
   var q0 = location.search || "";
   var mE = q0.match(/[?&]event=([^&]+)/); if (mE) EVENT_ID = mE[1];
   var mD = q0.match(/[?&]date=([^&]+)/); if (mD) EVENT_DATE = mD[1];
   var mT = q0.match(/[?&]title=([^&]+)/);
   if (mT) { try { EVENT_TITLE = decodeURIComponent(mT[1]); } catch (e) { EVENT_TITLE = mT[1]; } }
+  var mTm = q0.match(/[?&]time=([^&]+)/);
+  if (mTm) { try { EVENT_TIME = decodeURIComponent(mTm[1]); } catch (e) { EVENT_TIME = mTm[1]; } }
+  var mP = q0.match(/[?&]place=([^&]+)/);
+  if (mP) { try { EVENT_PLACE = decodeURIComponent(mP[1]); } catch (e) { EVENT_PLACE = mP[1]; } }
 } catch (e) {}
 if (EVENT_ID) LS_FORM = "ohc_carpool_form_" + EVENT_ID;
 
 /* カレンダーのデータ保存先（GAS）。精算結果を予定に記録するのに使う */
 var CAL_API = "https://script.google.com/macros/s/AKfycbwWqGkcDGcuP-6QAaVatsVfNXzR7iXdQUtAsXkEZqA4RSzbOLqLOYpHgaYk4mUnKwQ/exec";
+
+/* カレンダーの画面URL。記録後にその予定の場所へ戻るのに使う */
+var CAL_PAGE = "https://dxbears1972-maker.github.io/ohc-calendar/";
 var carCount = 0;
 var lastResultText = "";
 var lastResultData = null;
@@ -598,11 +605,12 @@ function saveHistory() {
     xhr.onreadystatechange = function () {
       if (xhr.readyState !== 4) return;
       if (xhr.status >= 200 && xhr.status < 300) {
-        m0.textContent = "カレンダーに記録しました！全員が見られます";
+        m0.textContent = "カレンダーに記録しました！カレンダーに戻ります…";
+        setTimeout(function () { location.href = CAL_PAGE + "?goto=" + EVENT_ID; }, 1200);
       } else {
         m0.textContent = "カレンダーへの記録に失敗しました。電波の良い所でもう一度押してください";
+        setTimeout(function () { m0.style.display = "none"; }, 4000);
       }
-      setTimeout(function () { m0.style.display = "none"; }, 4000);
     };
     xhr.send(JSON.stringify({ action: "setSettle", id: EVENT_ID, text: lastResultText }));
     return;
@@ -762,9 +770,14 @@ function setToday() {
   renderHist();
   if (!loadForm()) {
     addCar();
-    /* 予定から開かれた初回は、日付と山名を自動で入れる */
+    /* 予定から開かれた初回は、日付・山名・集合場所・時間を自動で入れる */
     if (EVENT_DATE) document.getElementById("hikeDate").value = EVENT_DATE;
     if (EVENT_TITLE) document.getElementById("hikeName").value = EVENT_TITLE;
+    if (EVENT_PLACE) document.getElementById("meetPlace").value = EVENT_PLACE;
+    if (EVENT_TIME) {
+      var tmm = EVENT_TIME.match(/(\d{1,2}):(\d{2})/);
+      if (tmm) document.getElementById("meetTime").value = ("0" + tmm[1]).slice(-2) + ":" + tmm[2];
+    }
   }
   /* 前回の計算結果があれば表示したままにする */
   var savedResult = lsGet(LS_FORM + "_result");
