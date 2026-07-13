@@ -281,6 +281,17 @@ var LS_ETC = "ohc_carpool_etc";
 var LS_SET = "ohc_carpool_set";
 var LS_FORM = "ohc_carpool_form";
 var LS_HIST = "ohc_carpool_hist";
+
+/* カレンダーの予定から開かれた場合は、その予定専用に入力データを分ける */
+var EVENT_ID = "", EVENT_DATE = "", EVENT_TITLE = "";
+try {
+  var q0 = location.search || "";
+  var mE = q0.match(/[?&]event=([^&]+)/); if (mE) EVENT_ID = mE[1];
+  var mD = q0.match(/[?&]date=([^&]+)/); if (mD) EVENT_DATE = mD[1];
+  var mT = q0.match(/[?&]title=([^&]+)/);
+  if (mT) { try { EVENT_TITLE = decodeURIComponent(mT[1]); } catch (e) { EVENT_TITLE = mT[1]; } }
+} catch (e) {}
+if (EVENT_ID) LS_FORM = "ohc_carpool_form_" + EVENT_ID;
 var carCount = 0;
 var lastResultText = "";
 var lastResultData = null;
@@ -719,8 +730,21 @@ function setToday() {
   loadSettings();
   loadEtc();
   renderHist();
-  if (!loadForm()) addCar();
+  if (!loadForm()) {
+    addCar();
+    /* 予定から開かれた初回は、日付と山名を自動で入れる */
+    if (EVENT_DATE) document.getElementById("hikeDate").value = EVENT_DATE;
+    if (EVENT_TITLE) document.getElementById("hikeName").value = EVENT_TITLE;
+  }
   updateYoubi();
+  /* どの予定の精算かをヘッダーに表示 */
+  if (EVENT_DATE || EVENT_TITLE) {
+    var hp = document.querySelector("header p");
+    var dLabel = "";
+    var dm = EVENT_DATE.match(/^\d{4}-0?(\d+)-0?(\d+)$/);
+    if (dm) dLabel = dm[1] + "月" + dm[2] + "日";
+    if (hp) hp.textContent = (dLabel + " " + EVENT_TITLE).replace(/^\s+|\s+$/g, "") + " の精算";
+  }
   var m = document.querySelector("main");
   m.addEventListener("input", function () { saveForm(); updateYoubi(); });
   m.addEventListener("change", function () { saveForm(); updateYoubi(); });
