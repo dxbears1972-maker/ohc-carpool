@@ -204,7 +204,7 @@
     <div id="resultBody"></div>
     <button type="button" class="btn btn-sub" onclick="copyResult()">結果をコピーする（LINE用）</button>
     <div class="copied" id="copiedMsg">コピーしました！</div>
-    <button type="button" class="btn btn-sub" onclick="saveHistory()">この結果を履歴に残す</button>
+    <button type="button" class="btn btn-sub" id="saveHistBtn" onclick="saveHistory()">この結果を履歴に残す</button>
     <div class="copied" id="histSavedMsg">履歴に保存しました！</div>
   </div>
 
@@ -292,6 +292,9 @@ try {
   if (mT) { try { EVENT_TITLE = decodeURIComponent(mT[1]); } catch (e) { EVENT_TITLE = mT[1]; } }
 } catch (e) {}
 if (EVENT_ID) LS_FORM = "ohc_carpool_form_" + EVENT_ID;
+
+/* カレンダーのデータ保存先（GAS）。精算結果を予定に記録するのに使う */
+var CAL_API = "https://script.google.com/macros/s/AKfycbwWqGkcDGcuP-6QAaVatsVfNXzR7iXdQUtAsXkEZqA4RSzbOLqLOYpHgaYk4mUnKwQ/exec";
 var carCount = 0;
 var lastResultText = "";
 var lastResultData = null;
@@ -570,6 +573,9 @@ function calc() {
     total: total,
     text: t
   };
+
+  /* 計算結果を保存して、次に開いたときも表示したままにする */
+  lsSet(LS_FORM + "_result", { html: html, text: t, data: lastResultData });
 }
 
 /* ---------- 履歴 ---------- */
@@ -580,6 +586,28 @@ function saveHistory() {
   if (h.length > 50) h = h.slice(0, 50);
   lsSet(LS_HIST, h);
   renderHist();
+
+  /* カレンダーの予定から開かれた場合は、結果をカレンダーにも記録して全員が見られるようにする */
+  if (EVENT_ID && lastResultText) {
+    var m0 = document.getElementById("histSavedMsg");
+    m0.textContent = "カレンダーに記録しています…";
+    m0.style.display = "block";
+    var xhr = new XMLHttpRequest();
+    xhr.open("POST", CAL_API, true);
+    xhr.setRequestHeader("Content-Type", "text/plain;charset=utf-8");
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState !== 4) return;
+      if (xhr.status >= 200 && xhr.status < 300) {
+        m0.textContent = "カレンダーに記録しました！全員が見られます";
+      } else {
+        m0.textContent = "カレンダーへの記録に失敗しました。電波の良い所でもう一度押してください";
+      }
+      setTimeout(function () { m0.style.display = "none"; }, 4000);
+    };
+    xhr.send(JSON.stringify({ action: "setSettle", id: EVENT_ID, text: lastResultText }));
+    return;
+  }
+
   var m = document.getElementById("histSavedMsg");
   m.style.display = "block";
   setTimeout(function () { m.style.display = "none"; }, 2000);
@@ -688,6 +716,7 @@ function loadForm() {
 function clearForm() {
   if (!confirm("入力内容を全部消して最初からにします。よろしいですか？\n（ETC料金表・設定・履歴は残ります）")) return;
   try { localStorage.removeItem(LS_FORM); } catch (e) {}
+  try { localStorage.removeItem(LS_FORM + "_result"); } catch (e) {}
   document.getElementById("hikeName").value = "";
   document.getElementById("meetPlace").value = "";
   document.getElementById("meetTime").value = "";
@@ -700,6 +729,7 @@ function clearForm() {
   addCar();
   document.getElementById("result").style.display = "none";
   lastResultText = "";
+  lastResultData = null;
 }
 
 /* ---------- 設定 ---------- */
@@ -736,7 +766,19 @@ function setToday() {
     if (EVENT_DATE) document.getElementById("hikeDate").value = EVENT_DATE;
     if (EVENT_TITLE) document.getElementById("hikeName").value = EVENT_TITLE;
   }
+  /* 前回の計算結果があれば表示したままにする */
+  var savedResult = lsGet(LS_FORM + "_result");
+  if (savedResult && savedResult.html) {
+    document.getElementById("resultBody").innerHTML = savedResult.html;
+    document.getElementById("result").style.display = "block";
+    lastResultText = savedResult.text || "";
+    lastResultData = savedResult.data || null;
+  }
   updateYoubi();
+  /* 予定と連動しているときはボタンの文言を変える */
+  if (EVENT_ID) {
+    document.getElementById("saveHistBtn").textContent = "この結果をカレンダーに記録する（全員が見られる）";
+  }
   /* どの予定の精算かをヘッダーに表示 */
   if (EVENT_DATE || EVENT_TITLE) {
     var hp = document.querySelector("header p");
