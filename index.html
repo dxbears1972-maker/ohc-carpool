@@ -397,8 +397,13 @@ function addCar(data) {
     '<button type="button" class="btn-small" onclick="removeCar(this)">削除</button></div>' +
     '<label>ドライバー名</label>' +
     '<input type="text" class="car-name" placeholder="例：只隈">' +
-    '<label>往復距離（km）</label>' +
-    '<input type="number" class="car-km" placeholder="例：90" min="0" step="0.1">' +
+    '<label>走行距離（km）</label>' +
+    '<div style="display:flex;gap:8px;">' +
+    '<input type="number" class="car-km" placeholder="例：90" min="0" step="0.1" style="flex:2;min-width:0;">' +
+    '<select class="car-kmtype" style="flex:1;min-width:0;">' +
+    '<option value="round">往復</option>' +
+    '<option value="one">片道</option></select>' +
+    '</div>' +
     '<label>高速ルート（料金表から選ぶ）</label>' +
     '<select class="car-route" onchange="routeSelected(this)"><option value="">使わない／下に直接入力</option></select>' +
     '<label>ETCの有無</label>' +
@@ -410,6 +415,7 @@ function addCar(data) {
   if (data) {
     div.querySelector(".car-name").value = data.name || "";
     if (data.km != null && data.km !== "") div.querySelector(".car-km").value = data.km;
+    if (data.kmType) div.querySelector(".car-kmtype").value = data.kmType;
     if (data.etc != null && data.etc !== "") div.querySelector(".car-etc").value = data.etc;
   }
   document.getElementById("cars").appendChild(div);
@@ -488,6 +494,8 @@ function calc() {
     var km = parseFloat(c.querySelector(".car-km").value);
     var etc = parseInt(c.querySelector(".car-etc").value, 10);
     if (isNaN(km) || km < 0) { ok = false; km = 0; }
+    /* 「片道」で入力された距離は2倍して往復にする */
+    if (c.querySelector(".car-kmtype").value === "one") km = km * 2;
     if (isNaN(etc) || etc < 0) etc = 0;
     var gas = Math.round(km * gasRate);
     var cost = gas + etc;
@@ -496,7 +504,7 @@ function calc() {
   });
   if (!ok) {
     resultDiv.style.display = "block";
-    body.innerHTML = '<p class="warn">往復距離が入っていない車があります。確認してください。</p>';
+    body.innerHTML = '<p class="warn">走行距離が入っていない車があります。確認してください。</p>';
     return;
   }
 
@@ -695,6 +703,7 @@ function saveForm() {
     cars.push({
       name: c.querySelector(".car-name").value,
       km: c.querySelector(".car-km").value,
+      kmType: c.querySelector(".car-kmtype").value,
       etc: c.querySelector(".car-etc").value
     });
   });
