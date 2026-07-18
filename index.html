@@ -221,9 +221,10 @@
   <details>
     <summary>高速料金表の登録・編集</summary>
     <div class="card">
-      <p class="note">よく使うルートを登録しておくと、車の入力でドロップダウンから選べます。金額はどちらも<b>往復</b>で、ETC料金と通常料金（現金）を入れてください。自動で保存されます。</p>
+      <p class="note">よく使うルートを登録しておくと、車の入力でドロップダウンから選べます。金額はどちらも<b>往復</b>で、ETC料金と通常料金（現金）を入れてください。<b>この料金表はメンバー全員で共有</b>されます。誰かが登録・修正すると、みんなの画面にも反映されます。</p>
       <div id="etcRows"></div>
       <button type="button" class="btn btn-sub" onclick="addEtcRow()">＋ ルートを追加</button>
+      <div class="copied" id="etcSyncMsg"></div>
     </div>
   </details>
 
@@ -264,7 +265,7 @@
       <p>全車の経費合計を参加者全員で等分し、一人あたりの負担額を出します。ドライバーには車の経費が全額戻ります（自分の負担分を差し引いた額を受け取ります）。切り上げで出た余りもドライバーが受け取ります。</p>
       <p><b>手順</b></p>
       <p>① 参加人数を入れる　② 車ごとにドライバー名・往復距離・高速ルート（ETCの有無）を入れる　③「計算する」を押す　④ 結果をコピーしてLINE等で共有</p>
-      <p style="margin-top:8px;">入力した内容は自動で記憶され、次に開いたときに復元されます。</p>
+      <p style="margin-top:8px;">入力した内容は自動で記憶され、次に開いたときに復元されます。カレンダーの予定から開いた場合は、前に誰かが記録した精算内容が自動で読み込まれます。</p>
     </div>
   </details>
 
@@ -272,6 +273,8 @@
 
   <!-- 関連アプリ -->
   <a class="btn" style="background:#2e6b34;color:#fff;" href="https://dxbears1972-maker.github.io/ohc-calendar/" target="_blank">📅 OHCカレンダーを開く</a>
+
+  <p class="note" style="text-align:center">版 2026-07-18a</p>
 
 </main>
 
@@ -297,7 +300,7 @@ try {
 } catch (e) {}
 if (EVENT_ID) LS_FORM = "ohc_carpool_form_" + EVENT_ID;
 
-/* カレンダーのデータ保存先（GAS）。精算結果を予定に記録するのに使う */
+/* カレンダーのデータ保存先（GAS）。精算結果の記録と料金表の共有に使う */
 var CAL_API = "https://script.google.com/macros/s/AKfycbwWqGkcDGcuP-6QAaVatsVfNXzR7iXdQUtAsXkEZqA4RSzbOLqLOYpHgaYk4mUnKwQ/exec";
 
 /* カレンダーの画面URL。記録後にその予定の場所へ戻るのに使う */
@@ -325,6 +328,22 @@ function updateYoubi() {
   document.getElementById("youbiDisp").textContent = y ? y + "曜日" : "";
 }
 
+/* ---------- サーバー通信（カレンダーと同じGASを使う） ---------- */
+function apiPost(body, cb) {
+  var xhr = new XMLHttpRequest();
+  xhr.open("POST", CAL_API, true);
+  xhr.setRequestHeader("Content-Type", "text/plain;charset=utf-8");
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState !== 4) return;
+    if (xhr.status >= 200 && xhr.status < 300) {
+      var data = null;
+      try { data = JSON.parse(xhr.responseText); } catch (e) {}
+      cb(data ? null : true, data);
+    } else { cb(true, null); }
+  };
+  try { xhr.send(JSON.stringify(body)); } catch (e) { cb(true, null); }
+}
+
 /* ---------- 参加人数 ---------- */
 var nPeople = 4;
 function changeN(d) {
@@ -333,7 +352,7 @@ function changeN(d) {
   saveForm();
 }
 
-/* ---------- ETC料金表 ---------- */
+/* ---------- ETC料金表（メンバー全員で共有） ---------- */
 function getEtcRoutes() {
   var rows = document.querySelectorAll("#etcRows .etc-row");
   var routes = [];
@@ -351,9 +370,22 @@ function getEtcRoutes() {
   });
   return routes;
 }
+var etcSaveTimer = null;
 function saveEtc() {
-  lsSet(LS_ETC, getEtcRoutes());
+  var routes = getEtcRoutes();
+  lsSet(LS_ETC, routes);
   refreshAllDropdowns();
+  /* みんなで使えるよう、サーバーにも保存する（連続入力は1秒待ってまとめて送る） */
+  if (etcSaveTimer) clearTimeout(etcSaveTimer);
+  etcSaveTimer = setTimeout(function () {
+    apiPost({ action: "saveRoutes", routes: getEtcRoutes() }, function (err, data) {
+      var m = document.getElementById("etcSyncMsg");
+      if (!m) return;
+      m.textContent = err ? "共有の保存に失敗しました。電波の良い所でもう一度直してください" : "みんなの料金表に保存しました";
+      m.style.display = "block";
+      setTimeout(function () { m.style.display = "none"; }, 3000);
+    });
+  }, 1000);
 }
 function addEtcRow(name, etcFee, normalFee) {
   var box = document.getElementById("etcRows");
@@ -371,6 +403,15 @@ function addEtcRow(name, etcFee, normalFee) {
   if (normalFee != null) div.querySelector(".etc-normal").value = normalFee;
   box.appendChild(div);
 }
+function rebuildEtcRows(routes) {
+  var box = document.getElementById("etcRows");
+  box.innerHTML = "";
+  if (routes && routes.length) {
+    routes.forEach(function (r) { addEtcRow(r.name, r.etc, r.normal); });
+  } else {
+    addEtcRow();
+  }
+}
 function loadEtc() {
   var saved = lsGet(LS_ETC);
   if (saved && saved.length) {
@@ -385,6 +426,25 @@ function loadEtc() {
   } else {
     addEtcRow();
   }
+}
+/* サーバーからみんなの料金表を取り込む（起動時） */
+function fetchRoutes() {
+  apiPost({ action: "listRoutes" }, function (err, data) {
+    if (err || !data || !data.routes) return;
+    var local = getEtcRoutes();
+    /* サーバーが空でこの端末に料金表がある場合は、この端末の内容を共有に登録する */
+    if (!data.routes.length && local.length) {
+      apiPost({ action: "saveRoutes", routes: local }, function () {});
+      return;
+    }
+    var cur = JSON.stringify(local);
+    var svr = JSON.stringify(data.routes);
+    if (cur !== svr) {
+      lsSet(LS_ETC, data.routes);
+      rebuildEtcRows(data.routes);
+      refreshAllDropdowns();
+    }
+  });
 }
 
 /* ---------- 車 ---------- */
@@ -602,25 +662,26 @@ function saveHistory() {
   lsSet(LS_HIST, h);
   renderHist();
 
-  /* カレンダーの予定から開かれた場合は、結果をカレンダーにも記録して全員が見られるようにする */
+  /* カレンダーの予定から開かれた場合は、結果と入力内容をカレンダーにも記録して
+     全員が見られる・引き継げるようにする */
   if (EVENT_ID && lastResultText) {
     var m0 = document.getElementById("histSavedMsg");
     m0.textContent = "カレンダーに記録しています…";
     m0.style.display = "block";
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", CAL_API, true);
-    xhr.setRequestHeader("Content-Type", "text/plain;charset=utf-8");
-    xhr.onreadystatechange = function () {
-      if (xhr.readyState !== 4) return;
-      if (xhr.status >= 200 && xhr.status < 300) {
+    apiPost({
+      action: "setSettle",
+      id: EVENT_ID,
+      text: lastResultText,
+      form: JSON.stringify(getFormData())
+    }, function (err) {
+      if (!err) {
         m0.textContent = "カレンダーに記録しました！カレンダーに戻ります…";
         setTimeout(function () { location.href = CAL_PAGE + "?goto=" + EVENT_ID; }, 1200);
       } else {
         m0.textContent = "カレンダーへの記録に失敗しました。電波の良い所でもう一度押してください";
         setTimeout(function () { m0.style.display = "none"; }, 4000);
       }
-    };
-    xhr.send(JSON.stringify({ action: "setSettle", id: EVENT_ID, text: lastResultText }));
+    });
     return;
   }
 
@@ -697,7 +758,7 @@ function copyResult() {
 }
 
 /* ---------- 入力の記憶 ---------- */
-function saveForm() {
+function getFormData() {
   var cars = [];
   document.querySelectorAll("#cars .car-card").forEach(function (c) {
     cars.push({
@@ -707,17 +768,19 @@ function saveForm() {
       etc: c.querySelector(".car-etc").value
     });
   });
-  lsSet(LS_FORM, {
+  return {
     date: document.getElementById("hikeDate").value,
     hikeName: document.getElementById("hikeName").value,
     place: document.getElementById("meetPlace").value,
     time: document.getElementById("meetTime").value,
     n: nPeople,
     cars: cars
-  });
+  };
 }
-function loadForm() {
-  var f = lsGet(LS_FORM);
+function saveForm() {
+  lsSet(LS_FORM, getFormData());
+}
+function applyForm(f) {
   if (!f) return false;
   if (f.date) document.getElementById("hikeDate").value = f.date;
   document.getElementById("hikeName").value = f.hikeName || "";
@@ -729,6 +792,36 @@ function loadForm() {
     return true;
   }
   return false;
+}
+function loadForm() {
+  return applyForm(lsGet(LS_FORM));
+}
+/* この予定で前に誰かが精算していれば、その内容を初期値として取り込む */
+function fetchPrevSettle() {
+  apiPost({ action: "getSettle", id: EVENT_ID }, function (err, data) {
+    if (err || !data) return;
+    if (data.form) {
+      try {
+        var f = JSON.parse(data.form);
+        document.getElementById("cars").innerHTML = "";
+        carCount = 0;
+        if (!applyForm(f)) addCar();
+        saveForm();
+        calc();
+        var m = document.getElementById("histSavedMsg");
+        m.textContent = "前回記録された精算内容を読み込みました";
+        m.style.display = "block";
+        setTimeout(function () { m.style.display = "none"; }, 3500);
+      } catch (e) {}
+    } else if (data.text) {
+      /* 昔の記録（入力内容なし）の場合は、結果の文章だけ表示する */
+      document.getElementById("resultBody").innerHTML =
+        '<p class="note"><b>前回記録された精算結果</b></p>' +
+        '<pre style="white-space:pre-wrap;font-family:inherit;background:#f4f7f4;padding:10px;border-radius:8px;">' +
+        escapeHtml(data.text) + "</pre>";
+      document.getElementById("result").style.display = "block";
+    }
+  });
 }
 function clearForm() {
   if (!confirm("入力内容を全部消して最初からにします。よろしいですか？\n（ETC料金表・設定・履歴は残ります）")) return;
@@ -777,7 +870,8 @@ function setToday() {
   loadSettings();
   loadEtc();
   renderHist();
-  if (!loadForm()) {
+  var hadLocal = loadForm();
+  if (!hadLocal) {
     addCar();
     /* 予定から開かれた初回は、日付・山名・集合場所・時間を自動で入れる */
     if (EVENT_DATE) document.getElementById("hikeDate").value = EVENT_DATE;
@@ -787,6 +881,8 @@ function setToday() {
       var tmm = EVENT_TIME.match(/(\d{1,2}):(\d{2})/);
       if (tmm) document.getElementById("meetTime").value = ("0" + tmm[1]).slice(-2) + ":" + tmm[2];
     }
+    /* 前に誰かがこの予定の精算を記録していれば、それを初期値にする */
+    if (EVENT_ID) fetchPrevSettle();
   }
   /* 前回の計算結果があれば表示したままにする */
   var savedResult = lsGet(LS_FORM + "_result");
@@ -797,6 +893,8 @@ function setToday() {
     lastResultData = savedResult.data || null;
   }
   updateYoubi();
+  /* みんなの料金表を取り込む */
+  fetchRoutes();
   /* 予定と連動しているときはボタンの文言を変える */
   if (EVENT_ID) {
     document.getElementById("saveHistBtn").textContent = "この結果をカレンダーに記録する（全員が見られる）";
