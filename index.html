@@ -26,6 +26,10 @@
     color: #fff;
     padding: 16px;
     text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    box-shadow: 0 2px 6px rgba(0,0,0,.2);
   }
   header h1 { font-size: 26px; }
   header p { font-size: 15px; opacity: .9; }
@@ -45,6 +49,7 @@
     margin-bottom: 12px;
   }
   label { font-size: 17px; font-weight: bold; display: block; margin-top: 10px; }
+  .hint { font-size: 14px; font-weight: normal; color: #777; }
   input[type=text], input[type=number], input[type=date], input[type=time], select {
     width: 100%;
     font-size: 22px;
@@ -55,8 +60,10 @@
     background: #fff;
   }
   input:focus, select:focus { border-color: #2e6b34; outline: none; }
+  input.err { border-color: #c33; background: #fff0f0; }
   .row { display: flex; gap: 10px; }
   .row > div { flex: 1; }
+  .subhead { font-size: 15px; font-weight: bold; color: #2e6b34; margin-top: 14px; border-top: 1px dashed #bbb; padding-top: 8px; }
   /* 人数ステッパー */
   .stepper { display: flex; align-items: center; gap: 14px; justify-content: center; margin-top: 8px; }
   .stepper button {
@@ -103,14 +110,20 @@
     margin-top: 10px;
   }
   #result .per-person .label { font-size: 18px; }
-  #result .per-person .yen { font-size: 42px; font-weight: bold; color: #d9541e; }
+  #result .per-person .yen { font-size: 44px; font-weight: bold; color: #d9541e; }
+  #result .per-person .sub { font-size: 15px; color: #555; margin-top: 6px; }
   .result-car {
     border-bottom: 1px solid #ccc;
     padding: 12px 0;
   }
   .result-car .name { font-size: 20px; font-weight: bold; }
   .result-car .receive { font-size: 26px; font-weight: bold; color: #2e6b34; }
-  .result-car .detail { font-size: 15px; color: #555; }
+  .result-car .detail { font-size: 14px; color: #555; }
+  .check-ok {
+    background: #e7f4e7; border: 2px solid #2e6b34; color: #1d4a22;
+    border-radius: 10px; padding: 10px; margin-top: 12px;
+    font-size: 16px; font-weight: bold; text-align: center;
+  }
   .note { font-size: 15px; color: #555; margin-top: 8px; }
   .warn { color: #c33; font-weight: bold; margin-top: 8px; font-size: 17px; }
   details { margin-top: 14px; }
@@ -189,18 +202,40 @@
     </div>
   </div>
 
-  <!-- 車 -->
+  <!-- 車にかかる費用 -->
   <div class="card">
-    <h2>2. 車の情報</h2>
+    <h2>2. 車にかかる費用</h2>
+    <p class="note">ドライバーが立替え、参加者全員で等分してドライバーに戻します。無い費用は空欄でOKです。</p>
     <div id="cars"></div>
     <button type="button" class="btn btn-sub" onclick="addCar()">＋ 車を追加する</button>
+  </div>
+
+  <!-- 人にかかる費用 -->
+  <div class="card">
+    <h2>3. 人にかかる費用</h2>
+    <p class="note">一人ずつにかかる費用です（無ければ空欄でOK）。</p>
+    <div class="row">
+      <div>
+        <label>フェリー（1人あたり）</label>
+        <input type="number" id="ferryPerson" placeholder="0" min="0">
+      </div>
+      <div>
+        <label>入場料（1人あたり）</label>
+        <input type="number" id="entPerson" placeholder="0" min="0">
+      </div>
+    </div>
+    <label>この費用を立替えた人</label>
+    <select id="personPayer">
+      <option value="-1">各自でその場払い（精算しない）</option>
+    </select>
+    <p class="hint">「各自でその場払い」なら一人あたり金額に含めて表示だけします。誰かがまとめて払った場合はその人を選ぶと精算に入ります。</p>
   </div>
 
   <button type="button" class="btn btn-main" onclick="calc()">計算する</button>
 
   <!-- 結果 -->
   <div class="card" id="result" style="display:none;">
-    <h2>3. 精算結果</h2>
+    <h2>4. 精算結果</h2>
     <div id="resultBody"></div>
     <button type="button" class="btn btn-sub" onclick="copyResult()">結果をコピーする（LINE用）</button>
     <div class="copied" id="copiedMsg">コピーしました！</div>
@@ -260,11 +295,11 @@
   <details>
     <summary>使い方・計算のしくみ</summary>
     <div class="card">
-      <p><b>計算のしくみ（Excel版と同じ）</b></p>
-      <p>車1台の経費 ＝ 往復距離 × 単価50円 ＋ 高速往復料金（ETCの有無で自動切替）</p>
-      <p>全車の経費合計を参加者全員で等分し、一人あたりの負担額を出します。ドライバーには車の経費が全額戻ります（自分の負担分を差し引いた額を受け取ります）。切り上げで出た余りもドライバーが受け取ります。</p>
+      <p><b>計算のしくみ</b></p>
+      <p>車にかかる費用（ガソリン＝往復距離×50円　＋　高速往復　＋　フェリー車分　＋　駐車料金　＋　入場料車分）を全部合計し、参加者全員で等分します。ドライバーには立替えた車の費用が全額戻ります（本人負担分を差し引いた額を受け取り）。切り上げで出た余りもドライバーが受け取ります。</p>
+      <p>人にかかる費用（フェリー人分・入場料人分）は一人あたりに加えます。各自その場で払った場合は精算せず表示のみ、誰かがまとめて立替えた場合はその人が受け取ります。</p>
       <p><b>手順</b></p>
-      <p>① 参加人数を入れる　② 車ごとにドライバー名・往復距離・高速ルート（ETCの有無）を入れる　③「計算する」を押す　④ 結果をコピーしてLINE等で共有</p>
+      <p>① 人数を入れる　② 車ごとに費用を入れる　③ 人にかかる費用を入れる　④「計算する」　⑤ 結果をコピーして共有</p>
       <p style="margin-top:8px;">入力した内容は自動で記憶され、次に開いたときに復元されます。カレンダーの予定から開いた場合は、前に誰かが記録した精算内容が自動で読み込まれます。</p>
     </div>
   </details>
@@ -274,7 +309,7 @@
   <!-- 関連アプリ -->
   <a class="btn" style="background:#2e6b34;color:#fff;" href="https://dxbears1972-maker.github.io/ohc-calendar/" target="_blank">📅 OHCカレンダーを開く</a>
 
-  <p class="note" style="text-align:center">版 2026-07-18a</p>
+  <p class="note" style="text-align:center">版 2026-07-19a</p>
 
 </main>
 
@@ -316,6 +351,9 @@ function lsSet(key, val) {
   try { localStorage.setItem(key, JSON.stringify(val)); } catch (e) {}
 }
 function yen(n) { return "¥" + n.toLocaleString("ja-JP"); }
+function jpn(n) { return n.toLocaleString("ja-JP"); }
+/* 数値欄を安全に読む（空欄・不正は0）。負の値も0にする */
+function numOf(el) { var v = parseInt(el.value, 10); return (isNaN(v) || v < 0) ? 0 : v; }
 function youbiOf(dateVal) {
   if (!dateVal) return "";
   var p = dateVal.split("-");
@@ -352,7 +390,7 @@ function changeN(d) {
   saveForm();
 }
 
-/* ---------- ETC料金表（メンバー全員で共有） ---------- */
+/* ---------- 高速料金表（メンバー全員で共有） ---------- */
 function getEtcRoutes() {
   var rows = document.querySelectorAll("#etcRows .etc-row");
   var routes = [];
@@ -456,7 +494,7 @@ function addCar(data) {
     '<div class="car-head"><span class="car-title">車 ' + carCount + '</span>' +
     '<button type="button" class="btn-small" onclick="removeCar(this)">削除</button></div>' +
     '<label>ドライバー名</label>' +
-    '<input type="text" class="car-name" placeholder="例：只隈">' +
+    '<input type="text" class="car-name" placeholder="例：只隈" oninput="renumberCars()">' +
     '<label>走行距離（km）</label>' +
     '<div style="display:flex;gap:8px;">' +
     '<input type="number" class="car-km" placeholder="例：90" min="0" step="0.1" style="flex:2;min-width:0;">' +
@@ -471,17 +509,28 @@ function addCar(data) {
     '<option value="etc">ETCあり（ETC料金）</option>' +
     '<option value="normal">ETCなし（通常料金）</option></select>' +
     '<label>高速料金・往復（円）</label>' +
-    '<input type="number" class="car-etc" placeholder="0" min="0">';
+    '<input type="number" class="car-etc" placeholder="0" min="0">' +
+    '<div class="subhead">その他（あれば入力）</div>' +
+    '<label>フェリー（車分・往復）</label>' +
+    '<input type="number" class="car-ferry" placeholder="0" min="0">' +
+    '<label>駐車料金</label>' +
+    '<input type="number" class="car-park" placeholder="0" min="0">' +
+    '<label>入場料（車分）</label>' +
+    '<input type="number" class="car-ent" placeholder="0" min="0">';
   if (data) {
     div.querySelector(".car-name").value = data.name || "";
-    if (data.km != null && data.km !== "") div.querySelector(".car-km").value = data.km;
+    setIf(div, ".car-km", data.km);
     if (data.kmType) div.querySelector(".car-kmtype").value = data.kmType;
-    if (data.etc != null && data.etc !== "") div.querySelector(".car-etc").value = data.etc;
+    setIf(div, ".car-etc", data.etc);
+    setIf(div, ".car-ferry", data.ferry);
+    setIf(div, ".car-park", data.park);
+    setIf(div, ".car-ent", data.ent);
   }
   document.getElementById("cars").appendChild(div);
   refreshAllDropdowns();
   renumberCars();
 }
+function setIf(div, sel, v) { if (v != null && v !== "") div.querySelector(sel).value = v; }
 function removeCar(btn) {
   btn.closest(".car-card").remove();
   renumberCars();
@@ -492,6 +541,7 @@ function renumberCars() {
   cards.forEach(function (c, i) {
     c.querySelector(".car-title").textContent = "車 " + (i + 1);
   });
+  refreshPayerDropdown();
 }
 function refreshAllDropdowns() {
   var routes = getEtcRoutes();
@@ -526,6 +576,23 @@ function routeSelected(el) {
   card.querySelector(".car-etc").value = fee;
   saveForm();
 }
+/* 立替者ドロップダウン（人にかかる費用） */
+function refreshPayerDropdown() {
+  var sel = document.getElementById("personPayer");
+  if (!sel) return;
+  var current = sel.value;
+  var cards = document.querySelectorAll("#cars .car-card");
+  sel.innerHTML = '<option value="-1">各自でその場払い（精算しない）</option>';
+  cards.forEach(function (c, i) {
+    var nm = c.querySelector(".car-name").value.trim() || ("車" + (i + 1));
+    var op = document.createElement("option");
+    op.value = String(i);
+    op.textContent = nm + "さん（車" + (i + 1) + "）が立替え";
+    sel.appendChild(op);
+  });
+  sel.value = current;
+  if (sel.selectedIndex === -1) sel.value = "-1";
+}
 
 /* ---------- 計算 ---------- */
 function calc() {
@@ -536,47 +603,62 @@ function calc() {
   var body = document.getElementById("resultBody");
 
   if (cards.length === 0) {
-    resultDiv.style.display = "block";
-    body.innerHTML = '<p class="warn">「＋ 車を追加する」で車の情報を入れてください。</p>';
+    showWarn("「＋ 車を追加する」で車の情報を入れてください。");
     return;
   }
   if (nPeople < cards.length) {
-    resultDiv.style.display = "block";
-    body.innerHTML = '<p class="warn">参加人数（' + nPeople + '名）が車の台数（' + cards.length + '台）より少なくなっています。人数を確認してください。</p>';
+    showWarn("参加人数（" + nPeople + "名）が車の台数（" + cards.length + "台）より少なくなっています。人数を確認してください。");
+    return;
+  }
+
+  /* 入力チェック：走行距離が未入力・不正な車を洗い出す */
+  var badCars = [];
+  cards.forEach(function (c, i) {
+    var el = c.querySelector(".car-km");
+    var km = parseFloat(el.value);
+    el.classList.remove("err");
+    if (el.value.trim() === "" || isNaN(km) || km < 0) { badCars.push(i + 1); el.classList.add("err"); }
+  });
+  if (badCars.length) {
+    showWarn("車 " + badCars.join("・") + " の走行距離が入っていません（赤い枠の欄）。入力してから、もう一度「計算する」を押してください。");
     return;
   }
 
   var cars = [];
-  var total = 0;
-  var ok = true;
+  var carTotal = 0;
   cards.forEach(function (c, i) {
     var name = c.querySelector(".car-name").value.trim() || ("車" + (i + 1) + "のドライバー");
     var km = parseFloat(c.querySelector(".car-km").value);
-    var etc = parseInt(c.querySelector(".car-etc").value, 10);
-    if (isNaN(km) || km < 0) { ok = false; km = 0; }
-    /* 「片道」で入力された距離は2倍して往復にする */
-    if (c.querySelector(".car-kmtype").value === "one") km = km * 2;
-    if (isNaN(etc) || etc < 0) etc = 0;
+    if (c.querySelector(".car-kmtype").value === "one") km = km * 2; /* 片道は2倍して往復に */
+    var etc = numOf(c.querySelector(".car-etc"));
+    var ferry = numOf(c.querySelector(".car-ferry"));
+    var park = numOf(c.querySelector(".car-park"));
+    var ent = numOf(c.querySelector(".car-ent"));
     var gas = Math.round(km * gasRate);
-    var cost = gas + etc;
-    cars.push({ name: name, km: km, gas: gas, etc: etc, cost: cost });
-    total += cost;
+    var cost = gas + etc + ferry + park + ent;
+    cars.push({ name: name, km: km, gas: gas, etc: etc, ferry: ferry, park: park, ent: ent, cost: cost, bonus: 0, paidExtra: 0 });
+    carTotal += cost;
   });
-  if (!ok) {
-    resultDiv.style.display = "block";
-    body.innerHTML = '<p class="warn">走行距離が入っていない車があります。確認してください。</p>';
-    return;
-  }
 
-  var share = Math.ceil(total / nPeople / unit) * unit;
-  var surplus = share * nPeople - total;
-  /* 切り上げの余りはドライバーが受け取る（複数台は等分、端数は車1へ） */
+  /* 人にかかる費用 */
+  var ferryPerson = numOf(document.getElementById("ferryPerson"));
+  var entPerson = numOf(document.getElementById("entPerson"));
+  var personRate = ferryPerson + entPerson;
+  var personTotal = personRate * nPeople;
+  var payerIdx = parseInt(document.getElementById("personPayer").value, 10);
+  var personPooled = (payerIdx >= 0 && payerIdx < cars.length);
+
+  var grandTotal = carTotal + (personPooled ? personTotal : 0);
+  var share = Math.ceil(grandTotal / nPeople / unit) * unit;
+  var surplus = share * nPeople - grandTotal;
+
+  /* 切り上げの余りはドライバーが受け取る（等分・端数は車1へ） */
   var perDriver = Math.floor(surplus / cars.length);
   var remBonus = surplus - perDriver * cars.length;
-  cars.forEach(function (c, i) {
-    c.bonus = perDriver + (i === 0 ? remBonus : 0);
-  });
+  cars.forEach(function (c, i) { c.bonus = perDriver + (i === 0 ? remBonus : 0); });
+  if (personPooled) cars[payerIdx].paidExtra = personTotal;
 
+  /* 表示情報 */
   var dateVal = document.getElementById("hikeDate").value;
   var dateStr = "";
   if (dateVal) {
@@ -586,57 +668,90 @@ function calc() {
   var hikeName = document.getElementById("hikeName").value.trim();
   var meetPlace = document.getElementById("meetPlace").value.trim();
   var meetTime = document.getElementById("meetTime").value;
+  var passengers = nPeople - cars.length;
+  var displayTotal = share + (personPooled ? 0 : personRate);
 
-  /* 画面表示 */
+  /* ---------- 画面表示 ---------- */
   var html = "";
   if (meetPlace || meetTime) {
     html += '<p class="note" style="font-size:17px;"><b>集合：' +
       (meetTime ? meetTime + "　" : "") + escapeHtml(meetPlace) + '</b></p>';
   }
-  html += '<div class="per-person"><div class="label">一人あたりの負担額（' + nPeople + '名で等分）</div>' +
-          '<div class="yen">' + yen(share) + '</div></div>';
-  html += '<p class="note" style="margin-top:12px;"><b>経費の合計：' + yen(total) + '</b></p>';
+  html += '<div class="per-person"><div class="label">一人あたりの支払い</div>' +
+          '<div class="yen">' + yen(displayTotal) + '</div>';
+  if (!personPooled && personRate > 0) {
+    html += '<div class="sub">内訳：車の費用 ' + yen(share) + '　＋　人の費用（各自現地払い） ' + yen(personRate) + '</div>';
+  }
+  html += '</div>';
+
+  html += '<p class="note" style="margin-top:12px;"><b>車費用の合計：' + yen(carTotal) + '</b>' +
+          (personPooled ? '　＋ 人費用 ' + yen(personTotal) + '（' + escapeHtml(cars[payerIdx].name) + 'さん立替え）' : '') + '</p>';
+
   cars.forEach(function (c) {
-    var net = c.cost - share + c.bonus;
+    var net = c.cost + c.paidExtra - share + c.bonus;
     var netLabel = net >= 0
       ? '受け取り <span class="receive">' + yen(net) + '</span>'
       : '支払い <span class="receive" style="color:#c33">' + yen(-net) + '</span>';
+    var parts = ['ガソリン 往復' + c.km + 'km×' + gasRate + '円＝' + yen(c.gas)];
+    if (c.etc) parts.push('高速 ' + yen(c.etc));
+    if (c.ferry) parts.push('フェリー車分 ' + yen(c.ferry));
+    if (c.park) parts.push('駐車 ' + yen(c.park));
+    if (c.ent) parts.push('入場料車分 ' + yen(c.ent));
     html += '<div class="result-car">' +
       '<div class="name">' + escapeHtml(c.name) + 'さん（ドライバー）：' + netLabel + '</div>' +
-      '<div class="detail">車の経費 ' + yen(c.cost) +
-      '（ガソリン代 往復' + c.km + 'km×' + gasRate + '円＝' + yen(c.gas) +
-      '　＋　高速往復 ' + yen(c.etc) + '）－ 本人負担分 ' + yen(share) +
-      (c.bonus > 0 ? '　＋ 切り上げの余り ' + yen(c.bonus) : '') + '</div></div>';
+      '<div class="detail">車の費用 ' + yen(c.cost) + '（' + parts.join('　＋　') + '）' +
+      (c.paidExtra ? '　＋ 人費用立替 ' + yen(c.paidExtra) : '') +
+      '　－ 本人負担 ' + yen(share) +
+      (c.bonus > 0 ? '　＋ 余り ' + yen(c.bonus) : '') + '</div></div>';
   });
-  var passengers = nPeople - cars.length;
   if (passengers > 0) {
-    html += '<div class="result-car"><div class="name">同乗者 ' + passengers + '名：一人 ' + yen(share) + ' をドライバーへ</div></div>';
+    html += '<div class="result-car"><div class="name">同乗者 ' + passengers + '名：一人 ' + yen(displayTotal) + '</div>' +
+      (personPooled && personRate > 0 ? '<div class="detail">車費用 ' + yen(share) + '（人費用 ' + yen(personRate) + ' は立替者へ含む）</div>' : '') +
+      '</div>';
   }
   if (surplus > 0) {
-    html += '<p class="note"><b>切り上げによる余り ' + yen(surplus) + ' はドライバーの受け取りに含めています。</b></p>';
+    html += '<p class="note"><b>切り上げの余り ' + yen(surplus) + ' はドライバーの受け取りに含めています。</b></p>';
   }
+
+  /* 検算：受け取り合計＝支払い合計 を確認して表示 */
+  var totalReceive = 0, totalPay = 0;
+  cars.forEach(function (c) {
+    var net = c.cost + c.paidExtra - share + c.bonus;
+    if (net >= 0) totalReceive += net; else totalPay += -net;
+  });
+  totalPay += passengers * share;
+  if (totalReceive === totalPay) {
+    html += '<div class="check-ok">✓ 検算OK：受け取り合計 ' + yen(totalReceive) +
+            ' ＝ 支払い合計 ' + yen(totalPay) + '</div>';
+  } else {
+    html += '<div class="warn">検算：受け取り ' + yen(totalReceive) + ' と支払い ' + yen(totalPay) +
+            ' が一致しません。入力を確認してください。</div>';
+  }
+  if (!personPooled && personRate > 0) {
+    html += '<p class="note">※ 人の費用（一人 ' + yen(personRate) + '）は各自が現地で支払うため、上の精算には含みません。</p>';
+  }
+
   body.innerHTML = html;
   resultDiv.style.display = "block";
   resultDiv.scrollIntoView({ behavior: "smooth" });
 
-  /* コピー用テキスト */
+  /* ---------- コピー用テキスト ---------- */
   var t = "【マイカー精算】" + (dateStr ? dateStr + " " : "") + (hikeName ? hikeName : "") + "\n";
-  if (meetPlace || meetTime) {
-    t += "集合：" + (meetTime ? meetTime + " " : "") + meetPlace + "\n";
-  }
+  if (meetPlace || meetTime) t += "集合：" + (meetTime ? meetTime + " " : "") + meetPlace + "\n";
   t += "参加 " + nPeople + "名 / 車 " + cars.length + "台\n";
-  t += "一人あたり：" + share.toLocaleString("ja-JP") + "円\n";
-  t += "――――――――――\n";
+  t += "一人あたり：" + jpn(displayTotal) + "円";
+  if (!personPooled && personRate > 0) t += "（車費用" + jpn(share) + "円＋人費用" + jpn(personRate) + "円は各自現地払い）";
+  t += "\n――――――――――\n";
   cars.forEach(function (c) {
-    var net = c.cost - share + c.bonus;
+    var net = c.cost + c.paidExtra - share + c.bonus;
     t += "■" + c.name + "さん（ドライバー）\n";
-    t += "　車の経費 " + c.cost.toLocaleString("ja-JP") + "円（ガソリン " + c.gas.toLocaleString("ja-JP") + "円＋高速 " + c.etc.toLocaleString("ja-JP") + "円）\n";
+    t += "　車の費用 " + jpn(c.cost) + "円" + (c.paidExtra ? "＋人費用立替" + jpn(c.paidExtra) + "円" : "") + "\n";
     t += net >= 0
-      ? "　→ 受け取り " + net.toLocaleString("ja-JP") + "円\n"
-      : "　→ 支払い " + (-net).toLocaleString("ja-JP") + "円\n";
+      ? "　→ 受け取り " + jpn(net) + "円\n"
+      : "　→ 支払い " + jpn(-net) + "円\n";
   });
-  if (passengers > 0) t += "■同乗者" + passengers + "名 → 一人 " + share.toLocaleString("ja-JP") + "円 支払い\n";
-  if (surplus > 0) t += "（切り上げの余り " + surplus.toLocaleString("ja-JP") + "円はドライバー受け取り）\n";
+  if (passengers > 0) t += "■同乗者" + passengers + "名 → 一人 " + jpn(displayTotal) + "円\n";
+  if (surplus > 0) t += "（切り上げの余り " + jpn(surplus) + "円はドライバー受け取り）\n";
   lastResultText = t;
   lastResultData = {
     savedAt: new Date().toLocaleString("ja-JP"),
@@ -644,13 +759,19 @@ function calc() {
     hikeName: hikeName,
     n: nPeople,
     carsCount: cars.length,
-    share: share,
-    total: total,
+    share: displayTotal,
+    total: grandTotal,
     text: t
   };
 
   /* 計算結果を保存して、次に開いたときも表示したままにする */
   lsSet(LS_FORM + "_result", { html: html, text: t, data: lastResultData });
+}
+function showWarn(msg) {
+  document.getElementById("resultBody").innerHTML = '<p class="warn">' + escapeHtml(msg) + '</p>';
+  var r = document.getElementById("result");
+  r.style.display = "block";
+  r.scrollIntoView({ behavior: "smooth" });
 }
 
 /* ---------- 履歴 ---------- */
@@ -729,7 +850,7 @@ function delHist(i) {
 }
 
 function escapeHtml(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 /* ---------- コピー ---------- */
@@ -765,7 +886,10 @@ function getFormData() {
       name: c.querySelector(".car-name").value,
       km: c.querySelector(".car-km").value,
       kmType: c.querySelector(".car-kmtype").value,
-      etc: c.querySelector(".car-etc").value
+      etc: c.querySelector(".car-etc").value,
+      ferry: c.querySelector(".car-ferry").value,
+      park: c.querySelector(".car-park").value,
+      ent: c.querySelector(".car-ent").value
     });
   });
   return {
@@ -774,7 +898,10 @@ function getFormData() {
     place: document.getElementById("meetPlace").value,
     time: document.getElementById("meetTime").value,
     n: nPeople,
-    cars: cars
+    cars: cars,
+    ferryPerson: document.getElementById("ferryPerson").value,
+    entPerson: document.getElementById("entPerson").value,
+    payer: document.getElementById("personPayer").value
   };
 }
 function saveForm() {
@@ -787,11 +914,16 @@ function applyForm(f) {
   document.getElementById("meetPlace").value = f.place || "";
   document.getElementById("meetTime").value = f.time || "";
   if (f.n) { nPeople = f.n; document.getElementById("nDisp").textContent = nPeople; }
+  if (f.ferryPerson != null) document.getElementById("ferryPerson").value = f.ferryPerson;
+  if (f.entPerson != null) document.getElementById("entPerson").value = f.entPerson;
+  var hasCars = false;
   if (f.cars && f.cars.length) {
     f.cars.forEach(function (c) { addCar(c); });
-    return true;
+    hasCars = true;
   }
-  return false;
+  refreshPayerDropdown();
+  if (f.payer != null) document.getElementById("personPayer").value = f.payer;
+  return hasCars;
 }
 function loadForm() {
   return applyForm(lsGet(LS_FORM));
@@ -805,7 +937,7 @@ function fetchPrevSettle() {
         var f = JSON.parse(data.form);
         document.getElementById("cars").innerHTML = "";
         carCount = 0;
-        if (!applyForm(f)) addCar();
+        if (!applyForm(f)) { addCar(); refreshPayerDropdown(); }
         saveForm();
         calc();
         var m = document.getElementById("histSavedMsg");
@@ -824,12 +956,14 @@ function fetchPrevSettle() {
   });
 }
 function clearForm() {
-  if (!confirm("入力内容を全部消して最初からにします。よろしいですか？\n（ETC料金表・設定・履歴は残ります）")) return;
+  if (!confirm("入力内容を全部消して最初からにします。よろしいですか？\n（高速料金表・設定・履歴は残ります）")) return;
   try { localStorage.removeItem(LS_FORM); } catch (e) {}
   try { localStorage.removeItem(LS_FORM + "_result"); } catch (e) {}
   document.getElementById("hikeName").value = "";
   document.getElementById("meetPlace").value = "";
   document.getElementById("meetTime").value = "";
+  document.getElementById("ferryPerson").value = "";
+  document.getElementById("entPerson").value = "";
   setToday();
   updateYoubi();
   nPeople = 4;
@@ -837,6 +971,7 @@ function clearForm() {
   document.getElementById("cars").innerHTML = "";
   carCount = 0;
   addCar();
+  refreshPayerDropdown();
   document.getElementById("result").style.display = "none";
   lastResultText = "";
   lastResultData = null;
@@ -873,6 +1008,7 @@ function setToday() {
   var hadLocal = loadForm();
   if (!hadLocal) {
     addCar();
+    refreshPayerDropdown();
     /* 予定から開かれた初回は、日付・山名・集合場所・時間を自動で入れる */
     if (EVENT_DATE) document.getElementById("hikeDate").value = EVENT_DATE;
     if (EVENT_TITLE) document.getElementById("hikeName").value = EVENT_TITLE;
