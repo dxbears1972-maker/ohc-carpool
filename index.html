@@ -182,6 +182,8 @@
 </header>
 <main>
 
+  <div id="loadMsg" class="check-ok" style="display:none; margin-top:14px;"></div>
+
   <!-- 基本情報 -->
   <div class="card">
     <h2>1. ハイクの情報</h2>
@@ -328,7 +330,7 @@
   <!-- 関連アプリ -->
   <a class="btn" style="background:#2e6b34;color:#fff;" href="https://dxbears1972-maker.github.io/ohc-calendar/" target="_blank">📅 OHCカレンダーを開く</a>
 
-  <p class="note" style="text-align:center">版 2026-07-19d</p>
+  <p class="note" style="text-align:center">版 2026-07-19f</p>
 
 </main>
 
@@ -661,7 +663,7 @@ function refreshPayerDropdown() {
 }
 
 /* ---------- 計算 ---------- */
-function calc() {
+function calc(noScroll) {
   var gasRate = parseFloat(document.getElementById("gasRate").value) || 50;
   var unit = parseInt(document.getElementById("roundUnit").value, 10) || 1;
   var cards = document.querySelectorAll("#cars .car-card");
@@ -802,7 +804,7 @@ function calc() {
 
   body.innerHTML = html;
   resultDiv.style.display = "block";
-  resultDiv.scrollIntoView({ behavior: "smooth" });
+  if (!noScroll) resultDiv.scrollIntoView({ behavior: "smooth" });
 
   /* ---------- コピー用テキスト ---------- */
   var t = "【マイカー精算】" + (dateStr ? dateStr + " " : "") + (hikeName ? hikeName : "") + "\n";
@@ -1021,19 +1023,25 @@ function fetchPrevSettle() {
         carCount = 0;
         if (!applyForm(f)) { addCar(); refreshPayerDropdown(); }
         saveForm();
-        calc();
-        var m = document.getElementById("histSavedMsg");
-        m.textContent = "前回記録された精算内容を読み込みました";
+        /* 前回の入力を読み込み、計算結果も表示する。ただし画面は入力の先頭のまま
+           （結果へ自動でスクロールしない）。修正したら「計算する」を押す */
+        calc(true);
+        var m = document.getElementById("loadMsg");
+        m.textContent = "前回の精算内容を読み込みました。下に結果を表示しています。修正したら「計算する」を押してください。";
         m.style.display = "block";
-        setTimeout(function () { m.style.display = "none"; }, 3500);
+        window.scrollTo(0, 0);
       } catch (e) {}
     } else if (data.text) {
-      /* 昔の記録（入力内容なし）の場合は、結果の文章だけ表示する */
+      /* 昔の記録（入力内容なし）の場合は、前回の結果の文章を表示する */
       document.getElementById("resultBody").innerHTML =
         '<p class="note"><b>前回記録された精算結果</b></p>' +
         '<pre style="white-space:pre-wrap;font-family:inherit;background:#f4f7f4;padding:10px;border-radius:8px;">' +
         escapeHtml(data.text) + "</pre>";
       document.getElementById("result").style.display = "block";
+      var m2 = document.getElementById("loadMsg");
+      m2.textContent = "この予定は前に精算の記録があります。下に結果を表示しています。";
+      m2.style.display = "block";
+      window.scrollTo(0, 0);
     }
   });
 }
