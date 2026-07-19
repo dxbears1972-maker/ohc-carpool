@@ -61,6 +61,18 @@
   }
   input:focus, select:focus { border-color: #2e6b34; outline: none; }
   input.err { border-color: #c33; background: #fff0f0; }
+  /* チェックで入力欄を出す */
+  .chk-row { display: flex; flex-wrap: wrap; gap: 8px 10px; margin-top: 12px; }
+  .chk-row label {
+    font-size: 17px; font-weight: bold; margin: 0;
+    display: flex; align-items: center; gap: 8px;
+    background: #eef3ee; border: 2px solid #cdd6cd;
+    padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  }
+  .chk-row label.on { background: #d6ead6; border-color: #2e6b34; color: #2e6b34; }
+  .chk-row input[type=checkbox] { width: 26px; height: 26px; }
+  .opt-blk { display: none; }
+  .opt-blk.on { display: block; }
   .row { display: flex; gap: 10px; }
   .row > div { flex: 1; }
   .subhead { font-size: 15px; font-weight: bold; color: #2e6b34; margin-top: 14px; border-top: 1px dashed #bbb; padding-top: 8px; }
@@ -213,22 +225,29 @@
   <!-- 人にかかる費用 -->
   <div class="card">
     <h2>3. 人にかかる費用</h2>
-    <p class="note">一人ずつにかかる費用です（無ければ空欄でOK）。</p>
-    <div class="row">
-      <div>
-        <label>フェリー（1人あたり）</label>
-        <input type="number" id="ferryPerson" placeholder="0" min="0">
-      </div>
-      <div>
-        <label>入場料（1人あたり）</label>
-        <input type="number" id="entPerson" placeholder="0" min="0">
+    <p class="note">一人ずつにかかる費用です。あるものだけチェックを入れてください。</p>
+    <div class="chk-row">
+      <label><input type="checkbox" id="chkPFerry" onchange="togglePerson()">フェリー（一人あたり）</label>
+      <label><input type="checkbox" id="chkPEnt" onchange="togglePerson()">入場料（一人あたり）</label>
+    </div>
+    <div class="opt-blk blk-pferry">
+      <label>フェリー（1人あたり）</label>
+      <div style="display:flex;gap:8px;">
+        <input type="number" id="ferryPerson" placeholder="0" min="0" style="flex:2;min-width:0;">
+        <select id="ferryPersonType" style="flex:1;min-width:0;"><option value="round">往復</option><option value="one">片道</option></select>
       </div>
     </div>
-    <label>この費用を立替えた人</label>
-    <select id="personPayer">
-      <option value="-1">各自でその場払い（精算しない）</option>
-    </select>
-    <p class="hint">「各自でその場払い」なら一人あたり金額に含めて表示だけします。誰かがまとめて払った場合はその人を選ぶと精算に入ります。</p>
+    <div class="opt-blk blk-pent">
+      <label>入場料（1人あたり）</label>
+      <input type="number" id="entPerson" placeholder="0" min="0">
+    </div>
+    <div class="opt-blk blk-payer">
+      <label>この費用を立替えた人</label>
+      <select id="personPayer">
+        <option value="-1">各自でその場払い（精算しない）</option>
+      </select>
+      <p class="hint">「各自でその場払い」なら一人あたり金額に含めて表示だけします。誰かがまとめて払った場合はその人を選ぶと精算に入ります。</p>
+    </div>
   </div>
 
   <button type="button" class="btn btn-main" onclick="calc()">計算する</button>
@@ -309,7 +328,7 @@
   <!-- 関連アプリ -->
   <a class="btn" style="background:#2e6b34;color:#fff;" href="https://dxbears1972-maker.github.io/ohc-calendar/" target="_blank">📅 OHCカレンダーを開く</a>
 
-  <p class="note" style="text-align:center">版 2026-07-19a</p>
+  <p class="note" style="text-align:center">版 2026-07-19d</p>
 
 </main>
 
@@ -502,35 +521,82 @@ function addCar(data) {
     '<option value="round">往復</option>' +
     '<option value="one">片道</option></select>' +
     '</div>' +
-    '<label>高速ルート（料金表から選ぶ）</label>' +
-    '<select class="car-route" onchange="routeSelected(this)"><option value="">使わない／下に直接入力</option></select>' +
-    '<label>ETCの有無</label>' +
-    '<select class="car-etcuse" onchange="routeSelected(this)">' +
-    '<option value="etc">ETCあり（ETC料金）</option>' +
-    '<option value="normal">ETCなし（通常料金）</option></select>' +
-    '<label>高速料金・往復（円）</label>' +
-    '<input type="number" class="car-etc" placeholder="0" min="0">' +
-    '<div class="subhead">その他（あれば入力）</div>' +
-    '<label>フェリー（車分・往復）</label>' +
-    '<input type="number" class="car-ferry" placeholder="0" min="0">' +
-    '<label>駐車料金</label>' +
-    '<input type="number" class="car-park" placeholder="0" min="0">' +
-    '<label>入場料（車分）</label>' +
-    '<input type="number" class="car-ent" placeholder="0" min="0">';
+    '<div class="subhead">かかる費用にチェック</div>' +
+    '<div class="chk-row">' +
+      '<label><input type="checkbox" class="chk-etc" onchange="toggleOpt(this,\'blk-etc\')">高速道路</label>' +
+      '<label><input type="checkbox" class="chk-ferry" onchange="toggleOpt(this,\'blk-ferry\')">フェリー</label>' +
+      '<label><input type="checkbox" class="chk-park" onchange="toggleOpt(this,\'blk-park\')">駐車料金</label>' +
+      '<label><input type="checkbox" class="chk-ent" onchange="toggleOpt(this,\'blk-ent\')">入場料</label>' +
+    '</div>' +
+    '<div class="opt-blk blk-etc">' +
+      '<label>高速ルート（料金表から選ぶ）</label>' +
+      '<select class="car-route" onchange="routeSelected(this)"><option value="">使わない／下に直接入力</option></select>' +
+      '<label>ETCの有無</label>' +
+      '<select class="car-etcuse" onchange="routeSelected(this)">' +
+      '<option value="etc">ETCあり（ETC料金）</option>' +
+      '<option value="normal">ETCなし（通常料金）</option></select>' +
+      '<label>高速料金（円）</label>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<input type="number" class="car-etc" placeholder="0" min="0" style="flex:2;min-width:0;">' +
+        '<select class="car-etctype" style="flex:1;min-width:0;"><option value="round">往復</option><option value="one">片道</option></select>' +
+      '</div>' +
+    '</div>' +
+    '<div class="opt-blk blk-ferry"><label>フェリー（車分）</label>' +
+      '<div style="display:flex;gap:8px;">' +
+        '<input type="number" class="car-ferry" placeholder="0" min="0" style="flex:2;min-width:0;">' +
+        '<select class="car-ferrytype" style="flex:1;min-width:0;"><option value="round">往復</option><option value="one">片道</option></select>' +
+      '</div></div>' +
+    '<div class="opt-blk blk-park"><label>駐車料金</label>' +
+      '<input type="number" class="car-park" placeholder="0" min="0"></div>' +
+    '<div class="opt-blk blk-ent"><label>入場料（車分）</label>' +
+      '<input type="number" class="car-ent" placeholder="0" min="0"></div>';
   if (data) {
     div.querySelector(".car-name").value = data.name || "";
     setIf(div, ".car-km", data.km);
     if (data.kmType) div.querySelector(".car-kmtype").value = data.kmType;
     setIf(div, ".car-etc", data.etc);
+    if (data.etcType) div.querySelector(".car-etctype").value = data.etcType;
     setIf(div, ".car-ferry", data.ferry);
+    if (data.ferryType) div.querySelector(".car-ferrytype").value = data.ferryType;
     setIf(div, ".car-park", data.park);
     setIf(div, ".car-ent", data.ent);
+    setChk(div, ".chk-etc", "blk-etc", data.useEtc != null ? data.useEtc : has(data.etc));
+    setChk(div, ".chk-ferry", "blk-ferry", data.useFerry != null ? data.useFerry : has(data.ferry));
+    setChk(div, ".chk-park", "blk-park", data.usePark != null ? data.usePark : has(data.park));
+    setChk(div, ".chk-ent", "blk-ent", data.useEnt != null ? data.useEnt : has(data.ent));
   }
   document.getElementById("cars").appendChild(div);
   refreshAllDropdowns();
   renumberCars();
 }
 function setIf(div, sel, v) { if (v != null && v !== "") div.querySelector(sel).value = v; }
+function has(v) { return v != null && v !== "" && v !== "0"; }
+function setChk(scope, chkSel, blkCls, on) {
+  if (!on) return;
+  var chk = scope.querySelector(chkSel);
+  chk.checked = true;
+  scope.querySelector("." + blkCls).classList.add("on");
+  chk.parentNode.classList.add("on");
+}
+/* チェックで入力欄の表示を切り替える（車・人 共通） */
+function toggleOpt(chk, blkCls) {
+  var scope = chk.closest(".car-card") || chk.closest(".card");
+  var blk = scope.querySelector("." + blkCls);
+  if (blk) blk.classList.toggle("on", chk.checked);
+  chk.parentNode.classList.toggle("on", chk.checked);
+  saveForm();
+}
+/* 人にかかる費用のチェック切り替え */
+function togglePerson() {
+  var f = document.getElementById("chkPFerry");
+  var e = document.getElementById("chkPEnt");
+  document.querySelector(".blk-pferry").classList.toggle("on", f.checked);
+  document.querySelector(".blk-pent").classList.toggle("on", e.checked);
+  document.querySelector(".blk-payer").classList.toggle("on", f.checked || e.checked);
+  f.parentNode.classList.toggle("on", f.checked);
+  e.parentNode.classList.toggle("on", e.checked);
+  saveForm();
+}
 function removeCar(btn) {
   btn.closest(".car-card").remove();
   renumberCars();
@@ -630,10 +696,12 @@ function calc() {
     var name = c.querySelector(".car-name").value.trim() || ("車" + (i + 1) + "のドライバー");
     var km = parseFloat(c.querySelector(".car-km").value);
     if (c.querySelector(".car-kmtype").value === "one") km = km * 2; /* 片道は2倍して往復に */
-    var etc = numOf(c.querySelector(".car-etc"));
-    var ferry = numOf(c.querySelector(".car-ferry"));
-    var park = numOf(c.querySelector(".car-park"));
-    var ent = numOf(c.querySelector(".car-ent"));
+    var etc = c.querySelector(".chk-etc").checked ? numOf(c.querySelector(".car-etc")) : 0;
+    if (etc && c.querySelector(".car-etctype").value === "one") etc = etc * 2;
+    var ferry = c.querySelector(".chk-ferry").checked ? numOf(c.querySelector(".car-ferry")) : 0;
+    if (ferry && c.querySelector(".car-ferrytype").value === "one") ferry = ferry * 2;
+    var park = c.querySelector(".chk-park").checked ? numOf(c.querySelector(".car-park")) : 0;
+    var ent = c.querySelector(".chk-ent").checked ? numOf(c.querySelector(".car-ent")) : 0;
     var gas = Math.round(km * gasRate);
     var cost = gas + etc + ferry + park + ent;
     cars.push({ name: name, km: km, gas: gas, etc: etc, ferry: ferry, park: park, ent: ent, cost: cost, bonus: 0, paidExtra: 0 });
@@ -641,8 +709,9 @@ function calc() {
   });
 
   /* 人にかかる費用 */
-  var ferryPerson = numOf(document.getElementById("ferryPerson"));
-  var entPerson = numOf(document.getElementById("entPerson"));
+  var ferryPerson = document.getElementById("chkPFerry").checked ? numOf(document.getElementById("ferryPerson")) : 0;
+  if (ferryPerson && document.getElementById("ferryPersonType").value === "one") ferryPerson = ferryPerson * 2;
+  var entPerson = document.getElementById("chkPEnt").checked ? numOf(document.getElementById("entPerson")) : 0;
   var personRate = ferryPerson + entPerson;
   var personTotal = personRate * nPeople;
   var payerIdx = parseInt(document.getElementById("personPayer").value, 10);
@@ -887,9 +956,15 @@ function getFormData() {
       km: c.querySelector(".car-km").value,
       kmType: c.querySelector(".car-kmtype").value,
       etc: c.querySelector(".car-etc").value,
+      etcType: c.querySelector(".car-etctype").value,
       ferry: c.querySelector(".car-ferry").value,
+      ferryType: c.querySelector(".car-ferrytype").value,
       park: c.querySelector(".car-park").value,
-      ent: c.querySelector(".car-ent").value
+      ent: c.querySelector(".car-ent").value,
+      useEtc: c.querySelector(".chk-etc").checked,
+      useFerry: c.querySelector(".chk-ferry").checked,
+      usePark: c.querySelector(".chk-park").checked,
+      useEnt: c.querySelector(".chk-ent").checked
     });
   });
   return {
@@ -900,8 +975,11 @@ function getFormData() {
     n: nPeople,
     cars: cars,
     ferryPerson: document.getElementById("ferryPerson").value,
+    ferryPersonType: document.getElementById("ferryPersonType").value,
     entPerson: document.getElementById("entPerson").value,
-    payer: document.getElementById("personPayer").value
+    payer: document.getElementById("personPayer").value,
+    pFerryOn: document.getElementById("chkPFerry").checked,
+    pEntOn: document.getElementById("chkPEnt").checked
   };
 }
 function saveForm() {
@@ -915,7 +993,11 @@ function applyForm(f) {
   document.getElementById("meetTime").value = f.time || "";
   if (f.n) { nPeople = f.n; document.getElementById("nDisp").textContent = nPeople; }
   if (f.ferryPerson != null) document.getElementById("ferryPerson").value = f.ferryPerson;
+  if (f.ferryPersonType) document.getElementById("ferryPersonType").value = f.ferryPersonType;
   if (f.entPerson != null) document.getElementById("entPerson").value = f.entPerson;
+  document.getElementById("chkPFerry").checked = f.pFerryOn != null ? f.pFerryOn : has(f.ferryPerson);
+  document.getElementById("chkPEnt").checked = f.pEntOn != null ? f.pEntOn : has(f.entPerson);
+  togglePerson();
   var hasCars = false;
   if (f.cars && f.cars.length) {
     f.cars.forEach(function (c) { addCar(c); });
@@ -964,6 +1046,9 @@ function clearForm() {
   document.getElementById("meetTime").value = "";
   document.getElementById("ferryPerson").value = "";
   document.getElementById("entPerson").value = "";
+  document.getElementById("chkPFerry").checked = false;
+  document.getElementById("chkPEnt").checked = false;
+  togglePerson();
   setToday();
   updateYoubi();
   nPeople = 4;
